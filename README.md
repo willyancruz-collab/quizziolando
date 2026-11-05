@@ -9,7 +9,9 @@ Aplicação de quizzes ao vivo para escolas, feita com HTML, CSS e JavaScript se
 - Cloud Firestore Standard em `southamerica-east1`, dentro da cota gratuita.
 - Regras e índices do Firestore já publicados.
 - Login por e-mail/senha e anônimo ativados. Google OAuth não foi ativado: requer escolher um e-mail de suporte público.
-- Nenhum repositório ou domínio GitHub Pages foi publicado ainda.
+- Repositório público: [willyancruz-collab/quizziolando](https://github.com/willyancruz-collab/quizziolando).
+- Domínio `willyancruz-collab.github.io` autorizado no Firebase Authentication.
+- O código ainda precisa ser enviado ao GitHub; depois disso, o workflow publicará o site no GitHub Pages.
 
 ## Recursos
 
@@ -42,17 +44,16 @@ Abra `http://localhost:8000`. Também é possível usar a extensão Live Server 
 
 ## Publicar no GitHub Pages
 
-1. Crie um repositório público `quizziolando` na conta/organização GitHub desejada.
-2. Configure o remoto e envie a branch `main`:
+1. O repositório público `willyancruz-collab/quizziolando` já foi criado.
+2. Envie a branch `main` para o remoto configurado:
 
    ```sh
-   git remote add origin https://github.com/SEU_USUARIO_OU_ORG/quizziolando.git
    git push -u origin main
    ```
 
-3. No repositório, abra **Settings > Pages** e selecione **GitHub Actions** como origem de publicação.
-4. Faça um push para `main` ou execute manualmente o workflow **Deploy static app to GitHub Pages** na aba **Actions**.
-5. Em Firebase **Authentication > Settings > Authorized domains**, adicione o domínio Pages (por exemplo, `seu-usuario.github.io`).
+3. No repositório, abra **Settings > Pages** e selecione **GitHub Actions** como origem de publicação, se necessário.
+4. O push para `main` inicia o workflow **Deploy static app to GitHub Pages**; acompanhe a execução na aba **Actions**.
+5. O domínio `willyancruz-collab.github.io` já está autorizado no Firebase Authentication.
 
 O workflow `.github/workflows/pages.yml` publica somente a pasta `site`. Nenhum segredo do Firebase deve ser adicionado ao workflow ou ao repositório.
 

@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut
+  signInAnonymously, signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, query, where,
@@ -11,7 +11,6 @@ import { firebaseConfig } from "./firebase-config.js";
 
 const $ = (selector) => document.querySelector(selector);
 const views = ["auth", "teacher", "join", "room"];
-const provider = new GoogleAuthProvider();
 let db;
 let firebaseAuth;
 let user = null;
@@ -561,25 +560,6 @@ $("#auth-form").addEventListener("submit", async (event) => {
   } finally {
     authFlowInProgress = false;
     button.disabled = false;
-  }
-});
-
-$("#google-button").addEventListener("click", async () => {
-  clearError($("#auth-error"));
-  authFlowInProgress = true;
-  try {
-    const credential = await signInWithPopup(firebaseAuth, provider);
-    const profile = await getDoc(doc(db, "profiles", credential.user.uid));
-    if (!profile.exists()) {
-      const inep = window.prompt("Informe o código INEP da sua escola (8 números) para concluir o cadastro:");
-      if (!inep) throw new Error("O cadastro precisa do código INEP para continuar.");
-      await saveTeacherProfile(credential.user, credential.user.displayName || "Professor(a)", inep.trim());
-    }
-    await initializeTeacher(credential.user);
-  } catch (error) {
-    showError($("#auth-error"), readableError(error));
-  } finally {
-    authFlowInProgress = false;
   }
 });
 

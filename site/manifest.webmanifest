@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Quizziolando — quizzes ao vivo",
+  "short_name": "Quizziolando",
+  "description": "Quizzes ao vivo para aprender e se divertir em sala de aula.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f8fc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

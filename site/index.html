@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="description" content="Quizzes ao vivo para aprender e se divertir em sala de aula.">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Quizziolando — quizzes ao vivo</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Quizziolando, início">
+        <span class="brand-icon" aria-hidden="true">Q</span>
+        <span>QUIZZI<span class="brand-light">OLANDO</span></span>
+      </a>
+      <div class="top-actions">
+        <span id="connection-status" class="connection-status">Conectando…</span>
+        <button id="install-button" class="button button-quiet" type="button" hidden>Instalar app</button>
+        <button id="signout-button" class="button button-quiet" type="button" hidden>Sair</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="auth-view" class="view auth-layout">
+        <div class="hero-copy">
+          <span class="eyebrow">APRENDER JUNTOS É MAIS DIVERTIDO</span>
+          <h1>Uma sala de aula.<br><span class="gradient-text">Mil possibilidades.</span></h1>
+          <p>Crie quizzes, convide sua turma com um PIN e acompanhe cada resposta ao vivo.</p>
+          <div class="hero-points">
+            <span>✦ Feito para a escola</span>
+            <span>✦ Ao vivo e colaborativo</span>
+            <span>✦ Funciona como aplicativo</span>
+          </div>
+        </div>
+        <div class="card auth-card">
+          <div class="card-heading">
+            <span class="eyebrow">ÁREA DO PROFESSOR</span>
+            <h2 id="auth-title">Boas-vindas!</h2>
+            <p id="auth-description">Entre para preparar sua próxima atividade.</p>
+          </div>
+          <form id="auth-form" class="form-stack">
+            <label id="name-field" class="field" hidden>
+              <span>Nome do professor</span>
+              <input id="teacher-name" type="text" autocomplete="name" maxlength="80" placeholder="Seu nome">
+            </label>
+            <label id="inep-field" class="field" hidden>
+              <span>Código INEP da escola</span>
+              <input id="teacher-inep" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" placeholder="8 dígitos">
+            </label>
+            <label class="field">
+              <span>E-mail</span>
+              <input id="teacher-email" type="email" autocomplete="email" required placeholder="voce@escola.com">
+            </label>
+            <label class="field">
+              <span>Senha</span>
+              <input id="teacher-password" type="password" autocomplete="current-password" minlength="6" required placeholder="No mínimo 6 caracteres">
+            </label>
+            <p id="auth-error" class="notice notice-error" role="alert" hidden></p>
+            <button id="auth-submit" class="button button-primary button-wide" type="submit">Entrar</button>
+          </form>
+          <button id="google-button" class="button button-outline button-wide" type="button">Continuar com Google</button>
+          <p class="switch-auth"><span id="switch-copy">Ainda não tem uma conta?</span> <button id="switch-auth" class="text-button" type="button">Criar conta</button></p>
+          <div class="divider"><span>OU</span></div>
+          <button id="show-join" class="button button-dark button-wide" type="button">Entrar em uma sala com PIN</button>
+        </div>
+      </section>
+
+      <section id="teacher-view" class="view page-layout" hidden>
+        <div class="page-heading">
+          <div><span class="eyebrow">PAINEL DO PROFESSOR</span><h1>Olá, <span id="teacher-greeting">professor(a)</span>!</h1><p>Prepare um quiz ou retome uma atividade.</p></div>
+          <button id="show-join-teacher" class="button button-outline" type="button">Entrar em uma sala</button>
+        </div>
+        <div class="dashboard-grid">
+          <section class="card create-card">
+            <div class="section-title"><span class="section-icon">✎</span><div><h2>Novo quiz</h2><p>Adicione perguntas e quatro alternativas.</p></div></div>
+            <form id="quiz-form" class="form-stack">
+              <label class="field"><span>Nome do quiz</span><input id="quiz-title" required maxlength="100" placeholder="Ex.: Revisão de Ciências"></label>
+              <label class="field">
+                <span>Perguntas</span>
+                <textarea id="quiz-questions" required rows="8" placeholder="Cada linha: pergunta|alternativa 1|alternativa 2|alternativa 3|alternativa 4|correta (1-4)|tempo em segundos"></textarea>
+              </label>
+              <p class="helper">Exemplo: Quanto é 2 + 2?|3|4|5|6|2|20</p>
+              <p id="quiz-error" class="notice notice-error" role="alert" hidden></p>
+              <button id="quiz-submit" class="button button-primary button-wide" type="submit">Salvar quiz</button>
+            </form>
+          </section>
+          <section class="quiz-section">
+            <div class="section-title"><span class="section-icon section-icon-lilac">▤</span><div><h2>Meus quizzes</h2><p>Escolha um para abrir uma sala.</p></div></div>
+            <div id="quiz-list" class="quiz-list"><div class="empty-state">Carregando seus quizzes…</div></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="join-view" class="view narrow-view" hidden>
+        <div class="card join-card">
+          <button class="back-button" data-back="true" type="button">← Voltar</button>
+          <span class="eyebrow">JOGAR COM A TURMA</span>
+          <h1 id="join-title">Entre na sala</h1>
+          <p id="join-description">Peça o PIN de seis números ao seu professor.</p>
+          <form id="join-form" class="form-stack">
+            <label class="field"><span>PIN da sala</span><input id="room-pin" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000"></label>
+            <label id="nickname-field" class="field" hidden><span>Seu apelido</span><input id="player-nickname" type="text" maxlength="20" autocomplete="nickname" placeholder="Como quer aparecer?"></label>
+            <p id="join-error" class="notice notice-error" role="alert" hidden></p>
+            <button id="join-submit" class="button button-primary button-wide" type="submit">Continuar</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="room-view" class="view page-layout" hidden>
+        <div class="room-heading">
+          <div><span id="room-state" class="eyebrow">SALA DE ESPERA</span><h1 id="room-title">Quiz ao vivo</h1><p id="room-subtitle"></p></div>
+          <div id="pin-display" class="pin-display" hidden><span>PIN DA SALA</span><strong id="room-pin-display"></strong></div>
+        </div>
+        <div class="room-grid">
+          <section class="card game-card">
+            <div id="lobby-panel">
+              <div class="game-emoji">🎉</div><h2>A turma está chegando!</h2><p>Compartilhe o PIN para seus alunos entrarem.</p>
+              <div id="lobby-count" class="player-count">0 participantes</div>
+              <button id="start-game" class="button button-primary button-wide" type="button" hidden>Começar quiz</button>
+            </div>
+            <div id="question-panel" hidden>
+              <div class="question-meta"><span id="question-number"></span><span id="question-timer"></span></div>
+              <h2 id="question-text"></h2>
+              <div id="answer-options" class="answer-options"></div>
+              <p id="answer-feedback" class="answer-feedback" role="status" hidden></p>
+              <div id="teacher-controls" class="teacher-controls" hidden>
+                <p id="response-count"></p>
+                <button id="advance-question" class="button button-primary button-wide" type="button">Revelar respostas</button>
+              </div>
+            </div>
+            <div id="finished-panel" hidden>
+              <div class="game-emoji">🏆</div><h2>Quiz encerrado!</h2><p>Confira o ranking final da turma.</p>
+            </div>
+            <button id="leave-room" class="text-button leave-button" type="button">Sair da sala</button>
+          </section>
+          <aside class="card leaderboard-card">
+            <div class="section-title"><span class="section-icon section-icon-gold">★</span><div><h2 id="players-title">Participantes</h2><p id="players-subtitle">Aguardando a turma</p></div></div>
+            <ol id="leaderboard" class="leaderboard"></ol>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

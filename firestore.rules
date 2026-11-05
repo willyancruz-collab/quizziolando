@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function game(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function ownsGame(gameId) {
+      return signedIn() && game(gameId).ownerId == request.auth.uid;
+    }
+
+    function isAnonymous() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == "anonymous";
+    }
+
+    match /profiles/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && !isAnonymous()
+        && request.resource.data.inep is string
+        && request.resource.data.inep.matches('^[0-9]{8}$');
+      allow delete: if false;
+    }
+
+    match /quizzes/{quizId} {
+      allow read, update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && !isAnonymous()
+        && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    match /roomPins/{pin} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && !isAnonymous()
+        && request.resource.data.ownerId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/games/$(request.resource.data.gameId)).data.ownerId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /games/{gameId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && !isAnonymous()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status == "lobby";
+      allow update: if ownsGame(gameId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status", "currentQuestion", "questionCount", "revealed", "questionStartedAt"
+        ]);
+      allow delete: if ownsGame(gameId) && resource.data.status == "lobby";
+
+      match /questions/{questionIndex} {
+        allow read: if signedIn();
+        allow create, update: if ownsGame(gameId);
+        allow delete: if ownsGame(gameId);
+      }
+
+      match /answerKeys/{questionIndex} {
+        allow read, write: if ownsGame(gameId);
+      }
+
+      match /players/{playerId} {
+        allow read: if signedIn();
+        allow create: if isAnonymous()
+          && request.auth.uid == playerId
+          && game(gameId).status in ["lobby", "live"]
+          && request.resource.data.keys().hasOnly(["nickname", "score", "joinedAt"])
+          && request.resource.data.nickname is string
+          && request.resource.data.nickname.size() >= 2
+          && request.resource.data.nickname.size() <= 20
+          && request.resource.data.score == 0;
+        allow update: if ownsGame(gameId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["score"])
+          && request.resource.data.score is number;
+        allow delete: if ownsGame(gameId);
+      }
+
+      match /responses/{questionIndex}/answers/{playerId} {
+        function question() {
+          return get(/databases/$(database)/documents/games/$(gameId)/questions/$(questionIndex)).data;
+        }
+
+        allow read: if ownsGame(gameId) || (signedIn() && request.auth.uid == playerId);
+        allow create: if isAnonymous()
+          && request.auth.uid == playerId
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(playerId))
+          && game(gameId).status == "live"
+          && game(gameId).revealed == false
+          && string(game(gameId).currentQuestion) == questionIndex
+          && question().durationSec is int
+          && request.time < game(gameId).questionStartedAt + duration.value(question().durationSec, "s")
+          && request.resource.data.keys().hasOnly(["optionIndex", "answeredAt", "scored"])
+          && request.resource.data.optionIndex is int
+          && request.resource.data.optionIndex >= 0
+          && request.resource.data.optionIndex <= 3
+          && request.resource.data.answeredAt == request.time
+          && request.resource.data.scored == false;
+        allow update: if ownsGame(gameId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["scored", "isCorrect", "earnedPoints"])
+          && request.resource.data.scored == true;
+        allow delete: if false;
+      }
+    }
+  }
+}

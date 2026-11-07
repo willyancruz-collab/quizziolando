@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="../css/style.css?v=20261106-wide-form"><title>Criar quiz | Quizziolando</title></head>
+<body><main class="workspace"><header><h1>Criar quiz</h1><nav><a href="./dashboard.html">Dashboard</a><a class="active" href="./criar-quiz.html">Criar quiz</a><a href="./criar-prova.html">Criar prova</a><a href="./aulas-atividades.html">Aulas e atividades</a><a href="./bi.html">BI</a><a href="./registros.html">Registros</a><a href="../index.html">Início</a></nav></header>
+  <section class="card class-manager">
+    <h2>Turmas</h2><p id="quiz-class-empty">Cadastre uma turma para poder selecioná-la no quiz.</p>
+    <div class="class-actions"><button id="toggle-quiz-class-form" class="secondary" type="button" aria-expanded="false">Cadastrar turma nova</button><button id="refresh-classes" class="secondary" type="button">Atualizar lista de turmas</button></div>
+    <form id="quiz-class-form" class="form-grid class-form" hidden>
+      <label>Nome da turma<input name="nome" required placeholder="1ºA Mecânica"></label>
+      <label>Curso<select name="curso" required><option value="">Selecione um curso</option></select></label>
+      <label>Disciplina<select name="disciplina" required><option value="">Selecione uma disciplina</option></select></label>
+      <button class="primary">Salvar turma</button>
+    </form>
+    <div id="class-list" class="class-list" aria-live="polite"></div>
+    <p id="class-feedback" class="feedback" role="status"></p>
+  </section>
+  <form id="quiz-form" class="stack">
+    <section class="card form-grid"><label>Título<input name="titulo" required maxlength="120"></label><label>Disciplina<select name="disciplina" required><option value="">Selecione uma disciplina</option></select></label><label>Curso<select name="curso" required><option value="">Selecione um curso</option></select></label><label>Turma<select name="turma" id="quiz-turma" required><option value="">Selecione</option></select></label><label>Tempo padrão (s)<input name="tempoPadrao" type="number" min="5" max="120" value="20"></label>
+      <label class="inline-field"><span>Avanço automático</span><input type="checkbox" id="autoAvanco"></label><label>Intervalo entre questões (s)<input id="intervalo" type="number" min="1" value="5"></label>
+      <label class="inline-field"><span>Monitorar tentativas de fraude</span><input type="checkbox" name="monitorarIntegridade" checked></label>
+      <label class="inline-field"><span>Desativar botão direito durante o quiz</span><input type="checkbox" name="bloquearBotaoDireito"></label>
+    </section>
+    <section class="card"><h2>Questões</h2><div id="questions" class="stack"></div><div class="form-grid"><button id="add-multiple" class="secondary" type="button">Nova questão múltipla escolha</button><button id="add-gap" class="secondary yellow" type="button">Nova Questão Lacuna</button></div></section>
+    <p id="page-error" class="feedback" role="alert" aria-live="assertive"></p><button class="primary" type="submit">Salvar quiz</button>
+  </form>
+</main><script type="module" src="../js/app-shell.js?v=20261106-wide-form"></script><script type="module" src="../js/professor.js?v=academic-catalog-1"></script></body></html>

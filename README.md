@@ -16,10 +16,23 @@ Aplicação de quizzes ao vivo para escolas, feita com HTML, CSS e JavaScript se
 ## Recursos
 
 - Cadastro e login de professores por e-mail/senha, com código INEP de 8 dígitos.
+- Dados de turmas, quizzes, provas e publicações separados pelo UID de cada professor autenticado.
 - Criação de quizzes com quatro alternativas, tempo de 5 a 60 segundos e importação em linhas separadas por `|`.
 - Sala de espera com PIN de seis dígitos e participantes sincronizados ao vivo.
 - Entrada de alunos por PIN e apelido, usando autenticação anônima.
+- Monitoramento opcional de mudança de aba, cópia/recorte/colagem e menu de contexto em quizzes/provas, com histórico em tempo real para o professor.
+- Perfil de aluno com avatares e upload de foto para o Firebase Storage.
+- Área do aluno com histórico de provas, rankings por partida, resumo de desempenho e troféus calculados pelas atividades concluídas.
+- Aulas e atividades por turma, com códigos privados de ingresso, provas/quizzes existentes, comentários, respostas, reações e anexos com visualização no site.
+- Controle master exclusivo para `willyancruz@prof.educacao.sp.gov.br` com e-mail verificado: lista de contas, ativação, desativação ou banimento no site, histórico de acessos e auditoria das ações.
+- Presença aproximada de contas autenticadas com sinal nos últimos 5 minutos e histórico com retenção de 90 dias; não são coletados endereços IP. O painel remove registros expirados quando é aberto.
+- Efeitos sonoros sintetizados pelo navegador, desativados por padrão e controlados pelo botão “Som”.
+- Tutorial interativo por área, com opção para iniciar, pular, reabrir pelo botão fixo “Tutorial” e desativar a abertura automática.
+- Ranking AuraMaster TI por curso/turma: soma os pontos de quizzes concluídos e concede medalhas digitais por posição (Diamante: 1º; Ouro: 2º–3º; Prata: 4º–10º; Bronze: demais participantes).
 - Respostas, revelação do gabarito e placar em tempo real.
+- Editor de quizzes com tempo por questão, avanço automático, lacunas, imagens no Firebase Storage e seleção de turma.
+- Áreas de provas, PDF, registros exportáveis, BI e histórico de provas do aluno.
+- Construtor de formulários de prova com múltipla escolha, caixas de seleção, respostas abertas, link/QR code, salvamento contínuo e respostas por aluno em tempo real; professores podem revisar respostas abertas e baixar ou imprimir cada entrega.
 - Pontuação de resposta correta: `máximo(0, 100 - segundos decorridos)`.
 - PWA instalável, com shell da aplicação em cache para abrir sem conexão. As funções Firebase precisam de internet.
 
@@ -31,6 +44,29 @@ O projeto Firebase, o app Web e o banco já foram criados. Para republicar as re
 firebase login
 firebase deploy --only firestore:rules,firestore:indexes
 ```
+
+Depois de inicializar o Firebase Storage no console, publique as regras dele separadamente:
+
+```sh
+firebase deploy --only storage
+```
+
+O cliente usa Firebase Web SDK modular v10 em `site/js/firebase-config.js`, que exporta Auth, Firestore e Storage. `site/firebase-config.js` mantém um reexport para compatibilidade com a aplicação existente. O bucket já está identificado pela configuração; para habilitar login Google, ative o provedor Google em **Authentication > Sign-in method**. Para upload, confirme que o Firebase Storage foi inicializado para o projeto antes de publicar `storage.rules`. Preferências não sensíveis, como desativar a abertura automática do tutorial, podem ser guardadas no `localStorage`; dados de atividade continuam no Firestore.
+
+O Firebase Hosting está configurado em `firebase.json` para publicar `site` com URLs limpas (sem `.html`); os módulos reconhecem URLs limpas e caminhos terminados em `.html`. Publique por Hosting com `firebase deploy --only hosting`, ou mantenha o fluxo existente do GitHub Pages.
+
+### Novas áreas
+
+- Professor: `site/professor/dashboard.html`, `criar-quiz.html`, `criar-prova.html`, `aulas-atividades.html`, `bi.html` e `registros.html`.
+- Aluno: `site/aluno/join.html`, `jogar.html` e `minhas-provas.html` (painel pessoal).
+- Coleções adicionais: `users`, `questions`, `options`, `lacunas`, `turmas`, `classAccessCodes`, `matriculas`, `sessoesJogo`, `jogadores`, `rankingQuizzes`, `respostas` e `provas`. Publicações e comentários ficam em subcoleções de `turmas/{turmaId}`.
+- Formulários publicados guardam o gabarito privado e as entregas em `provas/{provaId}/gabaritos` e `provas/{provaId}/respostasFormulario`; o professor acompanha e corrige pela página `site/professor/respostas-formulario.html`.
+- Imagens de questões são carregadas em `questoes-imagens/{uid}/...`; o acesso é limitado pelas regras de Storage.
+- Fotos de perfil são carregadas em `perfis-alunos/{uid}/avatar`; o upload requer que o Storage esteja inicializado. Os alertas do navegador são sinais para revisão humana e não comprovam fraude, nem impedem o uso de outro dispositivo ou navegador.
+- A área do aluno usa autenticação anônima; o histórico fica associado ao UID anônimo do navegador e os rankings registram apelidos e pontuações das partidas.
+- A contagem de presença representa UIDs autenticados recentemente, não pessoas únicas; uma pessoa pode usar mais de um dispositivo ou conta. As pontuações do ranking são calculadas no cliente e as medalhas são reconhecimento digital, não nota oficial nem prêmio físico.
+- O Controle master bloqueia o acesso aos dados do site via regras e não desativa contas no Firebase Auth. O acesso master exige que o Firebase Auth marque o e-mail como verificado; a página inicial oferece o envio do link de verificação.
+- As turmas existentes recebem um código de ingresso de 8 caracteres; anexos das aulas usam `aulas-atividades/{professorId}/{turmaId}/{publicacaoId}/...` no Storage. O professor precisa ativar o Firebase Storage no console do projeto antes de enviar arquivos.
 
 ## Executar localmente
 

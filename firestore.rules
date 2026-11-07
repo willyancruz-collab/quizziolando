@@ -1,8 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isMaster() {
+      return request.auth != null
+        && request.auth.token.email == "willyancruz@prof.educacao.sp.gov.br"
+        && request.auth.token.email_verified == true;
+    }
+
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && (isMaster()
+          || !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("accessStatus", "active") == "active");
     }
 
     function game(gameId) {
@@ -17,6 +26,182 @@ service cloud.firestore {
       return signedIn() && request.auth.token.firebase.sign_in_provider == "anonymous";
     }
 
+    function ownsQuiz(quizId) {
+      let quizData = get(/databases/$(database)/documents/quizzes/$(quizId)).data;
+      return signedIn() && (quizData.professorId == request.auth.uid || quizData.ownerId == request.auth.uid);
+    }
+
+    function questionIsOwned(questionId) {
+      let questionData = get(/databases/$(database)/documents/questions/$(questionId)).data;
+      return ownsQuiz(questionData.quizId);
+    }
+
+    function ownsSession(sessionId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/sessoesJogo/$(sessionId)).data.professorId == request.auth.uid;
+    }
+
+    function ownsClass(turmaId) {
+      return signedIn()
+        && !isAnonymous()
+        && get(/databases/$(database)/documents/turmas/$(turmaId)).data.professorId == request.auth.uid;
+    }
+
+    function isEnrolled(turmaId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/matriculas/$(request.auth.uid + "_" + turmaId))
+        && get(/databases/$(database)/documents/matriculas/$(request.auth.uid + "_" + turmaId)).data.alunoUid == request.auth.uid;
+    }
+
+    function canReadClassPost(turmaId, publicationId) {
+      let publication = get(/databases/$(database)/documents/turmas/$(turmaId)/publicacoes/$(publicationId)).data;
+      return signedIn()
+        && (publication.professorId == request.auth.uid
+          || (publication.arquivado == false && isEnrolled(turmaId)));
+    }
+
+    function validGameResponse() {
+      let answer = request.resource.data;
+      let sessionData = get(/databases/$(database)/documents/sessoesJogo/$(answer.sessaoId)).data;
+      let playerData = get(/databases/$(database)/documents/jogadores/$(request.auth.uid)).data;
+      let questionData = get(/databases/$(database)/documents/questions/$(answer.questionId)).data;
+      return isAnonymous()
+        && answer.jogadorId == request.auth.uid
+        && playerData.sessaoId == answer.sessaoId
+        && sessionData.status == "jogando"
+        && sessionData.quizId == answer.quizId
+        && sessionData.professorId == answer.professorId
+        && questionData.quizId == answer.quizId
+        && questionData.tempo is int
+        && request.time < sessionData.inicioQuestaoEm + duration.value(questionData.tempo, "s")
+        && answerIdMatchesGameResponse(answer);
+    }
+
+    function answerIdMatchesGameResponse(answer) {
+      return answer.id == answer.sessaoId + "_" + answer.questionId + "_" + request.auth.uid;
+    }
+
+    function validExamResponse() {
+      let answer = request.resource.data;
+      let proofData = get(/databases/$(database)/documents/provas/$(answer.provaId)).data;
+      let questionData = get(/databases/$(database)/documents/questions/$(answer.questionId)).data;
+      return isAnonymous()
+        && answer.alunoUid == request.auth.uid
+        && proofData.alunoUid == request.auth.uid
+        && proofData.professorId == answer.professorId
+        && proofData.status == "concluida"
+        && answer.questionId in proofData.questoesIds
+        && answerIdMatchesExamResponse(answer)
+        && questionData.quizId is string;
+    }
+
+    function answerIdMatchesExamResponse(answer) {
+      return answer.id == answer.provaId + "_" + answer.questionId + "_" + request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow get: if (request.auth != null && request.auth.uid == userId) || isMaster();
+      allow list: if isMaster();
+      allow create: if (signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.uid == userId
+          && request.resource.data.role in ["professor", "aluno"]
+          && ((request.resource.data.role == "professor" && !isAnonymous())
+            || (request.resource.data.role == "aluno" && isAnonymous())))
+        || (isMaster()
+          && request.resource.data.keys().hasOnly([
+            "uid", "nome", "email", "role", "escola", "accessStatus",
+            "accessReason", "accessUpdatedAt", "accessUpdatedBy"
+          ])
+          && request.resource.data.uid == userId
+          && request.resource.data.nome is string
+          && request.resource.data.email is string
+          && request.resource.data.role in ["professor", "aluno"]
+          && request.resource.data.escola == "PEI Riolando Canno"
+          && request.resource.data.accessStatus in ["active", "disabled", "banned"]
+          && request.resource.data.accessReason is string
+          && request.resource.data.accessReason.size() <= 300
+          && request.resource.data.accessUpdatedAt == request.time
+          && request.resource.data.accessUpdatedBy == request.auth.uid);
+      allow update: if (isMaster()
+          && userId != request.auth.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "accessStatus", "accessReason", "accessUpdatedAt", "accessUpdatedBy"
+          ])
+          && request.resource.data.accessStatus in ["active", "disabled", "banned"]
+          && request.resource.data.accessReason is string
+          && request.resource.data.accessReason.size() <= 300
+          && request.resource.data.accessUpdatedAt == request.time
+          && request.resource.data.accessUpdatedBy == request.auth.uid)
+        || (signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.escola == "PEI Riolando Canno"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "nome", "email", "escola", "avatar", "fotoUrl"
+          ]));
+      allow delete: if false;
+    }
+
+    match /accessPresence/{userId} {
+      function validPresence() {
+        return request.resource.data.keys().hasOnly(["uid", "email", "role", "page", "lastSeen"])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == (isAnonymous() ? "" : request.auth.token.email)
+          && request.resource.data.role == (isAnonymous() ? "aluno" : "professor")
+          && request.resource.data.page is string
+          && request.resource.data.page.size() <= 180
+          && request.resource.data.lastSeen == request.time;
+      }
+
+      allow get: if (signedIn() && request.auth.uid == userId) || isMaster();
+      allow list: if isMaster();
+      allow create, update: if signedIn()
+        && userId == request.auth.uid
+        && validPresence();
+      allow delete: if isMaster();
+    }
+
+    match /accessLogs/{logId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(["uid", "email", "role", "page", "accessedAt", "expiresAt"])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == (isAnonymous() ? "" : request.auth.token.email)
+        && request.resource.data.role == (isAnonymous() ? "aluno" : "professor")
+        && request.resource.data.page is string
+        && request.resource.data.page.size() <= 180
+        && request.resource.data.accessedAt == request.time
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(91, "d");
+      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isMaster();
+      allow update: if false;
+      allow delete: if isMaster();
+    }
+
+    match /adminAudit/{auditId} {
+      allow read: if isMaster();
+      allow create: if isMaster()
+        && request.resource.data.keys().hasOnly([
+          "id", "actorUid", "actorEmail", "targetUid", "targetEmail",
+          "action", "previousStatus", "reason", "createdAt"
+        ])
+        && request.resource.data.id == auditId
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.actorEmail == request.auth.token.email
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != request.auth.uid
+        && request.resource.data.targetEmail is string
+        && request.resource.data.action in ["active", "disabled", "banned"]
+        && request.resource.data.previousStatus in ["active", "disabled", "banned"]
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 300
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     match /profiles/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create, update: if signedIn()
@@ -27,11 +212,475 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /catalogosAcademicos/{professorId} {
+      function validAcademicCatalog() {
+        return request.resource.data.keys().hasOnly([
+            "professorId", "disciplinas", "cursos", "atualizadoEm"
+          ])
+          && request.resource.data.professorId == request.auth.uid
+          && request.resource.data.disciplinas is list
+          && request.resource.data.disciplinas.size() <= 150
+          && request.resource.data.cursos is list
+          && request.resource.data.cursos.size() <= 150
+          && request.resource.data.atualizadoEm == request.time;
+      }
+
+      allow get: if signedIn() && !isAnonymous() && request.auth.uid == professorId;
+      allow list: if false;
+      allow create, update: if signedIn()
+        && !isAnonymous()
+        && request.auth.uid == professorId
+        && validAcademicCatalog();
+      allow delete: if false;
+    }
+
     match /quizzes/{quizId} {
-      allow read, update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow read, update, delete: if signedIn()
+        && (resource.data.ownerId == request.auth.uid || resource.data.professorId == request.auth.uid);
       allow create: if signedIn()
         && !isAnonymous()
-        && request.resource.data.ownerId == request.auth.uid;
+        && (request.resource.data.ownerId == request.auth.uid || request.resource.data.professorId == request.auth.uid);
+    }
+
+    match /questions/{questionId} {
+      allow read: if signedIn();
+      allow create: if ownsQuiz(request.resource.data.quizId);
+      allow update: if questionIsOwned(questionId);
+      allow delete: if questionIsOwned(questionId);
+    }
+
+    match /options/{optionId} {
+      allow read: if signedIn();
+      allow create: if questionIsOwned(request.resource.data.questionId);
+      allow update, delete: if questionIsOwned(resource.data.questionId);
+    }
+
+    match /lacunas/{gapId} {
+      allow read: if signedIn();
+      allow create: if questionIsOwned(request.resource.data.questionId);
+      allow update, delete: if questionIsOwned(resource.data.questionId);
+    }
+
+    match /turmas/{turmaId} {
+      function codeAllowsRead() {
+        return signedIn()
+          && resource.data.codigoAcesso is string
+          && exists(/databases/$(database)/documents/classAccessCodes/$(resource.data.codigoAcesso))
+          && get(/databases/$(database)/documents/classAccessCodes/$(resource.data.codigoAcesso)).data.turmaId == turmaId;
+      }
+
+      allow get: if (signedIn() && resource.data.professorId == request.auth.uid)
+        || isEnrolled(turmaId)
+        || codeAllowsRead();
+      allow list: if signedIn() && resource.data.professorId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.professorId == request.auth.uid
+        && request.resource.data.professorId == resource.data.professorId;
+      allow delete: if signedIn() && resource.data.professorId == request.auth.uid;
+      allow create: if signedIn() && !isAnonymous() && request.resource.data.professorId == request.auth.uid;
+
+      match /publicacoes/{publicationId} {
+        function ownsPublication() {
+          return ownsClass(turmaId)
+            && resource.data.professorId == request.auth.uid;
+        }
+
+        function validPublication() {
+          let publication = request.resource.data;
+          return publication.keys().hasOnly([
+            "id", "professorId", "professorNome", "turmaId", "turmaNome", "curso", "disciplina",
+            "titulo", "tipo", "conteudo", "linkExterno", "arquivoPath", "arquivoNome", "arquivoTipo",
+            "atividadeTipo", "atividadeId", "atividadeNome", "sessaoId", "pin", "arquivado", "criadoEm"
+          ])
+            && publication.id == publicationId
+            && publication.professorId == request.auth.uid
+            && publication.turmaId == turmaId
+            && publication.professorNome is string
+            && publication.turmaNome is string
+            && publication.curso is string
+            && publication.disciplina is string
+            && publication.titulo is string
+            && publication.titulo.size() > 0
+            && publication.titulo.size() <= 120
+            && publication.tipo in ["aula", "atividade"]
+            && publication.conteudo is string
+            && publication.conteudo.size() <= 5000
+            && publication.linkExterno is string
+            && (publication.linkExterno == "" || publication.linkExterno.matches("^https?://.*"))
+            && publication.arquivoPath is string
+            && publication.arquivoNome is string
+            && publication.arquivoTipo is string
+            && (publication.arquivoPath == ""
+              || publication.arquivoPath.matches("^aulas-atividades/" + request.auth.uid + "/" + turmaId + "/" + publicationId + "/.*"))
+            && publication.atividadeTipo is string
+            && publication.atividadeId is string
+            && publication.atividadeNome is string
+            && publication.sessaoId is string
+            && publication.pin is string
+            && publication.arquivado == false
+            && publication.criadoEm == request.time
+            && ((publication.tipo == "aula"
+                && publication.atividadeTipo == ""
+                && publication.atividadeId == ""
+                && publication.sessaoId == ""
+                && publication.pin == "")
+              || (publication.tipo == "atividade"
+                && publication.atividadeTipo == "prova"
+                && exists(/databases/$(database)/documents/provas/$(publication.atividadeId))
+                && get(/databases/$(database)/documents/provas/$(publication.atividadeId)).data.professorId == request.auth.uid
+                && get(/databases/$(database)/documents/provas/$(publication.atividadeId)).data.turmaId == turmaId
+                && get(/databases/$(database)/documents/provas/$(publication.atividadeId)).data.status == "disponivel"
+                && publication.sessaoId == ""
+                && publication.pin == "")
+              || (publication.tipo == "atividade"
+                && publication.atividadeTipo == "quiz"
+                && exists(/databases/$(database)/documents/quizzes/$(publication.atividadeId))
+                && get(/databases/$(database)/documents/quizzes/$(publication.atividadeId)).data.professorId == request.auth.uid
+                && get(/databases/$(database)/documents/quizzes/$(publication.atividadeId)).data.turmaId == turmaId
+                && exists(/databases/$(database)/documents/sessoesJogo/$(publication.sessaoId))
+                && get(/databases/$(database)/documents/sessoesJogo/$(publication.sessaoId)).data.professorId == request.auth.uid
+                && get(/databases/$(database)/documents/sessoesJogo/$(publication.sessaoId)).data.quizId == publication.atividadeId
+                && get(/databases/$(database)/documents/sessoesJogo/$(publication.sessaoId)).data.status == "lobby"
+                && publication.pin == publication.sessaoId));
+        }
+
+        allow read: if canReadClassPost(turmaId, publicationId);
+        allow create: if ownsClass(turmaId) && validPublication();
+        allow update: if ownsPublication()
+          && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(["arquivado", "atualizadoEm"])
+              && request.resource.data.arquivado == true
+              && request.resource.data.atualizadoEm == request.time)
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["disciplina", "curso"]));
+        allow delete: if ownsPublication();
+
+        match /comentarios/{commentId} {
+          allow read: if canReadClassPost(turmaId, publicationId);
+          allow create: if canReadClassPost(turmaId, publicationId)
+            && request.resource.data.keys().hasOnly([
+              "id", "autorUid", "autorNome", "autorRole", "texto", "parentId", "criadoEm"
+            ])
+            && request.resource.data.id == commentId
+            && request.resource.data.autorUid == request.auth.uid
+            && request.resource.data.autorNome is string
+            && request.resource.data.autorRole in ["professor", "aluno"]
+            && request.resource.data.texto is string
+            && request.resource.data.texto.size() > 0
+            && request.resource.data.texto.size() <= 2000
+            && request.resource.data.parentId is string
+            && (request.resource.data.parentId == ""
+              || (exists(/databases/$(database)/documents/turmas/$(turmaId)/publicacoes/$(publicationId)/comentarios/$(request.resource.data.parentId))
+                && get(/databases/$(database)/documents/turmas/$(turmaId)/publicacoes/$(publicationId)/comentarios/$(request.resource.data.parentId)).data.parentId == ""))
+            && request.resource.data.criadoEm == request.time
+            && ((request.resource.data.autorRole == "professor" && ownsClass(turmaId))
+              || (request.resource.data.autorRole == "aluno" && isAnonymous() && isEnrolled(turmaId)));
+          allow update: if signedIn()
+            && resource.data.autorUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["texto"])
+            && request.resource.data.texto is string
+            && request.resource.data.texto.size() > 0
+            && request.resource.data.texto.size() <= 2000;
+          allow delete: if signedIn()
+            && (resource.data.autorUid == request.auth.uid || ownsClass(turmaId));
+
+          match /reacoes/{usuarioId} {
+            allow read: if canReadClassPost(turmaId, publicationId);
+            allow create, update: if canReadClassPost(turmaId, publicationId)
+              && usuarioId == request.auth.uid
+              && request.resource.data.keys().hasOnly(["usuarioId", "emoji", "atualizadaEm"])
+              && request.resource.data.usuarioId == request.auth.uid
+              && request.resource.data.emoji in ["👍", "❤️", "😂", "👏", "💡"]
+              && request.resource.data.atualizadaEm == request.time;
+            allow delete: if signedIn()
+              && (resource.data.usuarioId == request.auth.uid || ownsClass(turmaId));
+          }
+        }
+      }
+    }
+
+    match /classAccessCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && !isAnonymous()
+        && request.resource.data.id == code
+        && request.resource.data.professorId == request.auth.uid
+        && request.resource.data.turmaId is string
+        && getAfter(/databases/$(database)/documents/turmas/$(request.resource.data.turmaId)).data.professorId == request.auth.uid;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.professorId == request.auth.uid;
+    }
+
+    match /matriculas/{matriculaId} {
+      allow read: if signedIn()
+        && (resource.data.alunoUid == request.auth.uid || resource.data.professorId == request.auth.uid);
+      allow create: if isAnonymous()
+        && request.resource.data.keys().hasOnly([
+          "id", "alunoUid", "nome", "turmaId", "turmaNome", "curso", "disciplina",
+          "professorId", "codigoAcesso", "criadoEm"
+        ])
+        && request.resource.data.id == matriculaId
+        && request.resource.data.id == request.auth.uid + "_" + request.resource.data.turmaId
+        && request.resource.data.alunoUid == request.auth.uid
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 80
+        && request.resource.data.criadoEm == request.time
+        && exists(/databases/$(database)/documents/classAccessCodes/$(request.resource.data.codigoAcesso))
+        && get(/databases/$(database)/documents/classAccessCodes/$(request.resource.data.codigoAcesso)).data.turmaId == request.resource.data.turmaId
+        && get(/databases/$(database)/documents/classAccessCodes/$(request.resource.data.codigoAcesso)).data.professorId == request.resource.data.professorId
+        && get(/databases/$(database)/documents/turmas/$(request.resource.data.turmaId)).data.professorId == request.resource.data.professorId;
+      allow update: if isAnonymous()
+        && resource.data.alunoUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["nome"])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 80;
+      allow delete: if signedIn()
+        && (resource.data.alunoUid == request.auth.uid || resource.data.professorId == request.auth.uid);
+    }
+
+    match /sessoesJogo/{sessionId} {
+      allow get: if signedIn();
+      allow list: if signedIn() && resource.data.professorId == request.auth.uid;
+      allow create: if signedIn()
+        && !isAnonymous()
+        && request.resource.data.professorId == request.auth.uid
+        && ownsQuiz(request.resource.data.quizId)
+        && request.resource.data.status == "lobby";
+      allow update: if ownsSession(sessionId)
+        || (isAnonymous()
+          && resource.data.autoAvanco == true
+          && resource.data.status == "jogando"
+          && exists(/databases/$(database)/documents/jogadores/$(request.auth.uid))
+          && get(/databases/$(database)/documents/jogadores/$(request.auth.uid)).data.sessaoId == sessionId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["questaoAtual", "status", "inicioQuestaoEm", "atualizadaEm"])
+          && request.resource.data.questaoAtual == resource.data.questaoAtual + 1
+          && request.resource.data.status in ["jogando", "fim"]);
+      allow delete: if ownsSession(sessionId);
+    }
+
+    match /jogadores/{playerId} {
+      allow read: if signedIn();
+      allow create: if isAnonymous()
+        && request.auth.uid == playerId
+        && request.resource.data.id == playerId
+        && exists(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.sessaoId))
+        && get(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.sessaoId)).data.status in ["lobby", "jogando"]
+        && request.resource.data.pontuacao == 0;
+      allow update: if signedIn()
+        && request.auth.uid == playerId
+        && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(["pontuacao"])
+            && request.resource.data.pontuacao is number)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["sessaoId", "apelido", "pontuacao"])
+            && ((request.resource.data.sessaoId == resource.data.sessaoId
+                && request.resource.data.pontuacao == resource.data.pontuacao)
+              || (request.resource.data.sessaoId != resource.data.sessaoId
+                && request.resource.data.pontuacao == 0))
+            && exists(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.sessaoId))
+            && get(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.sessaoId)).data.status in ["lobby", "jogando"]));
+      allow delete: if false;
+    }
+
+    match /rankingQuizzes/{rankingId} {
+      function validRankingEntry() {
+        let entry = request.resource.data;
+        let sessionData = get(/databases/$(database)/documents/sessoesJogo/$(entry.sessaoId)).data;
+        return isAnonymous()
+          && entry.keys().hasOnly([
+            "id", "sessaoId", "jogadorId", "quizId", "titulo", "apelido",
+            "turmaId", "turma", "curso",
+            "pontuacao", "acertos", "totalRespondidas", "totalQuestoes",
+            "finalizado", "atualizadaEm"
+          ])
+          && entry.id == rankingId
+          && entry.jogadorId == request.auth.uid
+          && entry.sessaoId is string
+          && entry.quizId is string
+          && entry.titulo is string
+          && entry.apelido is string
+          && entry.apelido.size() <= 80
+          && entry.turmaId is string
+          && entry.turma is string
+          && entry.curso is string
+          && entry.pontuacao is int
+          && entry.acertos is int
+          && entry.totalRespondidas is int
+          && entry.totalQuestoes is int
+          && entry.acertos >= 0
+          && entry.totalRespondidas >= entry.acertos
+          && entry.totalQuestoes >= entry.totalRespondidas
+          && entry.pontuacao >= 0
+          && entry.finalizado is bool
+          && entry.atualizadaEm == request.time
+          && exists(/databases/$(database)/documents/jogadores/$(request.auth.uid))
+          && get(/databases/$(database)/documents/jogadores/$(request.auth.uid)).data.sessaoId == entry.sessaoId
+          && exists(/databases/$(database)/documents/sessoesJogo/$(entry.sessaoId))
+          && sessionData.quizId == entry.quizId
+          && entry.turmaId == sessionData.get("turmaId", "")
+          && entry.turma == sessionData.get("turma", "")
+          && entry.curso == sessionData.get("curso", "")
+          && (!entry.finalizado || sessionData.status == "fim");
+      }
+
+      allow read: if signedIn();
+      allow create: if validRankingEntry();
+      allow update: if validRankingEntry()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.jogadorId == resource.data.jogadorId
+        && request.resource.data.sessaoId == resource.data.sessaoId
+        && request.resource.data.quizId == resource.data.quizId
+        && (!resource.data.finalizado || request.resource.data.finalizado);
+      allow delete: if false;
+    }
+
+    match /respostas/{answerId} {
+      allow read: if signedIn()
+        && (resource.data.professorId == request.auth.uid
+          || resource.data.jogadorId == request.auth.uid
+          || resource.data.alunoUid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.questionId is string
+        && request.resource.data.acertou is bool
+        && (validGameResponse() || validExamResponse());
+      allow update, delete: if false;
+    }
+
+    match /penalidades/{eventId} {
+      allow create: if isAnonymous()
+        && request.resource.data.keys().hasOnly([
+          "id", "alunoId", "alunoNome", "professorId", "tipo",
+          "atividadeTipo", "atividadeId", "atividadeTitulo", "detalhes", "data"
+        ])
+        && request.resource.data.id == eventId
+        && request.resource.data.alunoId == request.auth.uid
+        && request.resource.data.professorId is string
+        && request.resource.data.tipo in [
+          "mudanca_aba", "tentativa_copiar", "tentativa_recortar",
+          "tentativa_colar", "botao_direito"
+        ]
+        && request.resource.data.detalhes is map
+        && request.resource.data.atividadeTipo in ["quiz", "prova"]
+        && ((request.resource.data.atividadeTipo == "quiz"
+            && exists(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.atividadeId))
+            && get(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.atividadeId)).data.professorId == request.resource.data.professorId
+            && get(/databases/$(database)/documents/sessoesJogo/$(request.resource.data.atividadeId)).data.status == "jogando"
+            && exists(/databases/$(database)/documents/jogadores/$(request.auth.uid))
+            && get(/databases/$(database)/documents/jogadores/$(request.auth.uid)).data.sessaoId == request.resource.data.atividadeId)
+          || (request.resource.data.atividadeTipo == "prova"
+            && exists(/databases/$(database)/documents/provas/$(request.resource.data.atividadeId))
+            && get(/databases/$(database)/documents/provas/$(request.resource.data.atividadeId)).data.professorId == request.resource.data.professorId
+            && get(/databases/$(database)/documents/provas/$(request.resource.data.atividadeId)).data.status == "disponivel"));
+      allow get, list: if signedIn() && !isAnonymous() && resource.data.professorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /provas/{provaId} {
+      allow get, list: if signedIn()
+        && (resource.data.professorId == request.auth.uid
+          || resource.data.alunoUid == request.auth.uid
+          || resource.data.status == "disponivel");
+      allow create: if signedIn()
+        && ((!isAnonymous() && request.resource.data.professorId == request.auth.uid
+            && request.resource.data.status == "disponivel")
+          || (request.resource.data.alunoUid == request.auth.uid
+            && request.resource.data.status == "concluida"
+            && exists(/databases/$(database)/documents/provas/$(request.resource.data.modeloProvaId))
+            && get(/databases/$(database)/documents/provas/$(request.resource.data.modeloProvaId)).data.status == "disponivel"
+            && get(/databases/$(database)/documents/provas/$(request.resource.data.modeloProvaId)).data.professorId == request.resource.data.professorId
+            && get(/databases/$(database)/documents/provas/$(request.resource.data.modeloProvaId)).data.questoesIds == request.resource.data.questoesIds));
+      allow update: if (signedIn()
+          && !isAnonymous()
+          && resource.data.professorId == request.auth.uid
+          && resource.data.status == "disponivel")
+        || (signedIn()
+          && !isAnonymous()
+          && resource.data.professorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["disciplina", "curso"]))
+        || (signedIn()
+          && !isAnonymous()
+          && resource.data.status == "concluida"
+          && resource.data.modeloProvaId is string
+          && get(/databases/$(database)/documents/provas/$(resource.data.modeloProvaId)).data.professorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "notaAuto", "acertos", "revisaoManual", "corrigidaEm", "disciplina", "curso"
+          ]));
+      allow delete: if signedIn()
+        && !isAnonymous()
+        && resource.data.professorId == request.auth.uid
+        && resource.data.status == "disponivel";
+
+      match /gabaritos/{questionId} {
+        allow get, list: if signedIn()
+          && get(/databases/$(database)/documents/provas/$(provaId)).data.professorId == request.auth.uid;
+        allow create, update: if signedIn()
+          && !isAnonymous()
+          && getAfter(/databases/$(database)/documents/provas/$(provaId)).data.professorId == request.auth.uid
+          && getAfter(/databases/$(database)/documents/provas/$(provaId)).data.modeloFormulario == true;
+        allow delete: if false;
+      }
+
+      match /respostasFormulario/{alunoUid} {
+        function ownsAvailableForm() {
+          return signedIn()
+            && get(/databases/$(database)/documents/provas/$(provaId)).data.modeloFormulario == true
+            && get(/databases/$(database)/documents/provas/$(provaId)).data.status == "disponivel";
+        }
+
+        function validFormSubmission() {
+          let formData = get(/databases/$(database)/documents/provas/$(provaId)).data;
+          return isAnonymous()
+            && ownsAvailableForm()
+            && alunoUid == request.auth.uid
+            && request.resource.data.keys().hasOnly([
+              "provaId", "alunoUid", "professorId", "turmaId", "titulo",
+              "alunoNome", "respostas", "status", "notaAuto", "acertos",
+              "totalQuestoes", "revisaoManual", "resultadoId", "tempoSegundos",
+              "criadoEm", "atualizadaEm", "atualizadoEm", "enviadaEm"
+            ])
+            && request.resource.data.alunoUid == request.auth.uid
+            && request.resource.data.provaId == provaId
+            && request.resource.data.professorId == formData.professorId
+            && request.resource.data.turmaId == formData.turmaId
+            && request.resource.data.respostas is map
+            && request.resource.data.respostas.keys().hasOnly(formData.questoesIds)
+            && request.resource.data.alunoNome is string
+            && request.resource.data.alunoNome.size() <= 80
+            && request.resource.data.status in ["em andamento", "enviada"];
+        }
+
+        allow get, list: if signedIn()
+          && (request.auth.uid == alunoUid
+            || get(/databases/$(database)/documents/provas/$(provaId)).data.professorId == request.auth.uid);
+        allow create: if validFormSubmission()
+          && request.resource.data.status == "em andamento"
+          && request.resource.data.respostas.size() == 0;
+        allow update: if (validFormSubmission()
+            && resource.data.alunoUid == request.auth.uid
+            && resource.data.status == "em andamento"
+            && (request.resource.data.status == resource.data.status
+              || request.resource.data.status == "enviada")
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "alunoNome", "respostas", "status", "notaAuto", "acertos",
+              "totalQuestoes", "revisaoManual", "resultadoId", "tempoSegundos",
+              "atualizadaEm", "enviadaEm", "atualizadoEm"
+            ]))
+          || (signedIn()
+            && !isAnonymous()
+            && get(/databases/$(database)/documents/provas/$(provaId)).data.professorId == request.auth.uid
+            && resource.data.status == "enviada"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "pontuacoesManuais", "notaAuto", "acertos", "revisaoManual", "corrigidaEm"
+            ]));
+        allow delete: if false;
+      }
+
+      match /{nestedCollection}/{documentId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /alunos/{alunoId}/minhas-provas/{provaId} {
+      allow read, write: if isAnonymous() && request.auth.uid == alunoId;
     }
 
     match /roomPins/{pin} {

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css?v=20261106-wide-form">
+  <title>Controle master | Quizziolando</title>
+</head>
+<body>
+<main class="workspace">
+  <header>
+    <h1>Controle master</h1>
+    <nav><a href="./dashboard.html">Dashboard</a><a class="active" href="./controle-master.html">Controle master</a><a href="../index.html">Início</a><button class="secondary" id="master-signout">Sair</button></nav>
+  </header>
+  <p class="feedback" id="master-feedback" role="status">Validando acesso...</p>
+  <div id="master-content" hidden>
+    <section class="card master-notice">
+      <h2>Administração protegida</h2>
+      <p>Desativar ou banir bloqueia o acesso aos dados do site e do Firestore, mas não desativa a autenticação no Firebase Auth. A ação é reversível e registrada. Como alunos usam autenticação anônima, um banimento por UID pode ser contornado ao recriar a sessão em outro navegador/dispositivo. A presença é aproximada: conta autenticada vista nos últimos 5 minutos. Não coletamos IP. O histórico é consultável por 90 dias e acessos expirados são removidos ao abrir este painel.</p>
+    </section>
+    <section class="master-stats" aria-label="Acessos recentes">
+      <article class="student-stat"><span>Ativos nos últimos 5 minutos</span><strong id="active-count">—</strong></article>
+      <article class="student-stat"><span>Alunos ativos</span><strong id="active-students">—</strong></article>
+      <article class="student-stat"><span>Professores ativos</span><strong id="active-teachers">—</strong></article>
+    </section>
+    <section class="card">
+      <div class="master-section-heading"><div><h2>Contas do site</h2><p>O bloqueio afeta o site, não a senha ou a conta Firebase.</p></div><button class="secondary" id="refresh-master">Atualizar dados</button></div>
+      <label>Buscar conta<input id="account-search" type="search" placeholder="Nome, e-mail ou UID"></label>
+      <div class="table-wrap"><table><thead><tr><th>Conta</th><th>Perfil</th><th>Status</th><th>Motivo</th><th>Ação</th></tr></thead><tbody id="accounts-body"></tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>Presença ao vivo</h2>
+      <div class="table-wrap"><table><thead><tr><th>Conta</th><th>Tipo</th><th>Página atual</th><th>Último sinal</th></tr></thead><tbody id="presence-body"></tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>Histórico de acessos</h2><p>Últimos 200 registros ainda dentro do período de retenção.</p>
+      <div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Conta / UID</th><th>Tipo</th><th>Página</th></tr></thead><tbody id="access-history-body"></tbody></table></div>
+    </section>
+    <section class="card">
+      <h2>Auditoria de ações master</h2>
+      <div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Ação</th><th>Conta afetada</th><th>Responsável</th><th>Motivo</th></tr></thead><tbody id="audit-body"></tbody></table></div>
+    </section>
+  </div>
+</main>
+<script type="module" src="../js/master-control.js"></script>
+</body>
+</html>

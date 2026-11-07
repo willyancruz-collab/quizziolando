@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="../css/style.css?v=ai-import-compact-print-1">
+  <title>Respostas do formulário | Quizziolando</title>
+</head>
+<body>
+<main class="workspace">
+  <header><div><span class="eyebrow">ACOMPANHAMENTO EM TEMPO REAL</span><h1>Respostas do formulário</h1></div>
+    <nav><a href="./dashboard.html">Dashboard</a><a href="./criar-prova.html">Criar formulário</a><a href="./registros.html">Registros</a></nav></header>
+  <section class="card"><a class="back-link" href="./criar-prova.html">← Voltar aos formulários</a><div id="response-form-summary"><p>Carregando formulário...</p></div></section>
+  <section class="card response-overview"><div class="response-overview-stat"><span>Alunos que abriram</span><strong id="response-open-count">0</strong></div><div class="response-overview-stat"><span>Respostas enviadas</span><strong id="response-submitted-count">0</strong></div><div class="response-overview-stat"><span>Em andamento</span><strong id="response-progress-count">0</strong></div></section>
+  <section class="card"><div class="workspace-section-heading"><div><h2>Respostas por aluno</h2><p>Os rascunhos são atualizados enquanto o aluno responde. Use o PDF para baixar ou imprimir uma resposta individual.</p></div><span class="live-status"><span></span> Atualização ao vivo</span></div>
+    <div id="form-responses" class="stack" aria-live="polite">Aguardando respostas dos alunos...</div><p id="page-error" class="feedback" role="alert"></p></section>
+</main>
+<script type="module" src="../js/app-shell.js?v=20261106-wide-form"></script>
+<script type="module" src="../js/professor.js?v=ai-import-compact-print-1"></script>
+<script type="module" src="../js/pdf-prova.js?v=ai-import-compact-print-1"></script>
+</body>
+</html>

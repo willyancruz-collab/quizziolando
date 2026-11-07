@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="../css/style.css?v=ai-import-compact-print-1">
+  <title>Criar formulário | Quizziolando</title>
+</head>
+<body>
+<main class="workspace">
+  <header>
+    <div><span class="eyebrow">AVALIAÇÕES E FORMULÁRIOS</span><h1>Criar formulário</h1></div>
+    <nav>
+      <a href="./dashboard.html">Dashboard</a><a href="./criar-quiz.html">Criar quiz</a>
+      <a class="active" href="./criar-prova.html">Criar prova</a><a href="./aulas-atividades.html">Aulas e atividades</a>
+      <a href="./bi.html">BI</a><a href="./registros.html">Registros</a>
+    </nav>
+  </header>
+
+  <section class="card form-builder-intro">
+    <div><span class="eyebrow">SEU FORMULÁRIO, DO SEU JEITO</span><h2>Monte, publique e acompanhe</h2>
+      <p>Adicione perguntas e alternativas, compartilhe por link ou QR code e acompanhe cada resposta enquanto os alunos preenchem.</p></div>
+    <div class="form-builder-steps" aria-label="Etapas do formulário"><span>1 · Criar</span><span>2 · Compartilhar</span><span>3 · Acompanhar</span></div>
+  </section>
+
+  <section class="card class-manager">
+    <h2>Turmas</h2><p id="exam-class-empty">Cadastre uma turma para poder selecioná-la no formulário.</p>
+    <div class="class-actions"><button id="toggle-exam-class-form" class="secondary" type="button" aria-expanded="false">Cadastrar turma nova</button><button id="refresh-classes" class="secondary" type="button">Atualizar lista de turmas</button></div>
+    <form id="exam-class-form" class="form-grid class-form" hidden>
+      <label>Nome da turma<input name="nome" required placeholder="1ºA Mecânica"></label>
+      <label>Curso<select name="curso" required><option value="">Selecione um curso</option></select></label>
+      <label>Disciplina<select name="disciplina" required><option value="">Selecione uma disciplina</option></select></label>
+      <button class="primary">Salvar turma</button>
+    </form>
+    <div id="class-list" class="class-list" aria-live="polite"></div>
+    <p id="class-feedback" class="feedback" role="status"></p>
+  </section>
+
+  <form id="exam-form" class="stack">
+    <section class="card">
+      <div class="form-section-heading"><span class="step-number">1</span><div><h2>Informações do formulário</h2><p>Esses dados identificam a avaliação para você e para os alunos.</p></div></div>
+      <div class="form-grid">
+        <label>Nome da escola<input name="escola" value="PEI Prof. Riolando Canno" required></label>
+        <label>Nome do professor<input id="professor-name" name="professorNome" required></label>
+        <label>Disciplina<select name="disciplina" required><option value="">Selecione uma disciplina</option></select></label>
+        <label>Curso<select name="curso" required><option value="">Selecione um curso</option></select></label>
+        <label>Turma<select name="turmaId" id="exam-turma" required><option value="">Selecione</option></select></label>
+        <label>Título do formulário<input name="titulo" required maxlength="120" placeholder="Ex.: Avaliação de Matemática"></label>
+        <label>Data<input name="data" type="date" required></label>
+        <label class="form-span-all">Instruções para os alunos<textarea name="instrucoes" rows="3" maxlength="1500" placeholder="Inclua orientações, prazo ou materiais permitidos."></textarea></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="form-section-heading"><span class="step-number">2</span><div><h2>Perguntas</h2><p>Escolha o tipo de resposta. Questões de seleção podem ter gabarito e correção automática.</p></div></div>
+      <details class="ai-import-panel">
+        <summary>Importar prova criada por IA (JSON)</summary>
+        <p>Peça à IA para gerar uma prova no formato JSON indicado abaixo. Cole o resultado ou carregue um arquivo .json; revise as perguntas e o gabarito antes de publicar.</p>
+        <label>Arquivo JSON (opcional)<input id="exam-import-file" type="file" accept=".json,application/json"></label>
+        <label>Conteúdo JSON<textarea id="exam-import-json" rows="8" spellcheck="false" placeholder='{"titulo":"Avaliação de Ciências","questoes":[{"enunciado":"Qual é a função das raízes?","tipo":"multipla","opcoes":[{"texto":"Absorver água e sais minerais","correta":true},{"texto":"Produzir sementes","correta":false}],"pontos":1}]}'></textarea></label>
+        <div class="question-builder-actions"><button id="copy-ai-import-prompt" class="secondary" type="button">Copiar instrução para a IA</button><button id="import-ai-exam" class="primary" type="button">Importar perguntas</button></div>
+        <p id="exam-import-feedback" class="feedback" role="status" aria-live="polite"></p>
+      </details>
+      <div id="exam-questions" class="stack question-builder-list" aria-live="polite"></div>
+      <div class="question-builder-actions">
+        <button id="add-exam-question" class="secondary" type="button">+ Adicionar pergunta</button>
+        <label class="inline-field"><span>Monitorar integridade durante a prova</span><input type="checkbox" name="monitorarIntegridade" checked></label>
+        <label class="inline-field"><span>Desativar botão direito</span><input type="checkbox" name="bloquearBotaoDireito"></label>
+      </div>
+    </section>
+
+    <p id="page-error" class="feedback" role="alert"></p>
+    <div class="form-publish-actions"><button class="primary" type="submit">Publicar formulário</button><button id="download-pdf" class="secondary" type="button">Baixar versão para impressão</button></div>
+  </form>
+
+  <section id="form-share" class="card form-share-card" hidden>
+    <div class="form-section-heading"><span class="step-number">3</span><div><h2>Formulário publicado</h2><p>Compartilhe o link ou QR code com os alunos. Acompanhe as respostas ao vivo.</p></div></div>
+    <div class="form-share-layout">
+      <div class="form-share-details"><label>Link de acesso<input id="published-form-link" type="url" readonly></label><div class="form-share-actions"><button id="copy-form-link" class="secondary" type="button">Copiar link</button><a id="open-form-responses" class="primary workspace-action-link">Acompanhar respostas</a></div><p id="published-exam" class="feedback" role="status"></p></div>
+      <div class="form-qr-wrap"><div id="form-qr-code" aria-label="QR code para abrir o formulário"></div><span>Escaneie para abrir o formulário</span></div>
+    </div>
+  </section>
+</main>
+<script type="module" src="../js/app-shell.js?v=20261106-wide-form"></script>
+<script type="module" src="../js/professor.js?v=ai-import-compact-print-1"></script>
+<script type="module" src="../js/pdf-prova.js?v=ai-import-compact-print-1"></script>
+</body>
+</html>

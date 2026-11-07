@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="../css/style.css?v=20261106-wide-form"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><title>Desempenho | Quizziolando</title></head>
+<body><main class="workspace"><header><h1>Desempenho do aluno</h1><nav><a href="./dashboard.html">Dashboard</a><a href="./criar-quiz.html">Criar quiz</a><a href="./criar-prova.html">Criar prova</a><a href="./aulas-atividades.html">Aulas e atividades</a><a class="active" href="./bi.html">BI</a><a href="./registros.html">Registros</a></nav></header>
+<section class="card form-grid"><label>Aluno para evolução<select id="student-filter"><option value="">Selecione</option></select></label></section>
+<section class="card"><h2>Taxa de acerto por questão</h2><canvas id="question-chart"></canvas></section><section class="card"><h2>Média por turma</h2><canvas id="class-chart"></canvas></section><section class="card"><h2>Evolução do aluno</h2><canvas id="student-chart"></canvas></section>
+<section class="card"><h2>Questões mais erradas</h2><ol id="missed-list"></ol><h2>Alunos em risco (nota menor que 5)</h2><ul id="risk-list"></ul></section><p id="page-error" class="feedback" role="alert"></p>
+</main><script type="module" src="../js/app-shell.js?v=20261106-wide-form"></script><script type="module" src="../js/professor.js?v=academic-catalog-1"></script></body></html>

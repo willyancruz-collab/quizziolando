@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="../css/style.css?v=20261106-wide-form"><title>Aulas e atividades | Quizziolando</title></head>
+<body><main class="workspace">
+  <header><h1>Aulas e atividades</h1><nav><a href="./dashboard.html">Dashboard</a><a href="./criar-quiz.html">Criar quiz</a><a href="./criar-prova.html">Criar prova</a><a class="active" href="./aulas-atividades.html">Aulas e atividades</a><a href="./bi.html">BI</a><a href="./registros.html">Registros</a><a href="../index.html">Início</a><button class="secondary" data-signout>Sair</button></nav></header>
+  <section class="card"><h2>Publicar para uma turma</h2><p>As publicações ficam disponíveis apenas para seus alunos inscritos na turma.</p>
+    <form id="publication-form" class="form-grid">
+      <label>Turma<select id="publication-class" name="turmaId" required><option value="">Carregando turmas...</option></select></label>
+      <label>Tipo de publicação<select id="publication-type" name="tipo"><option value="aula">Aula</option><option value="atividade">Atividade</option></select></label>
+      <label>Título<input name="titulo" required maxlength="120"></label>
+      <label>Conteúdo e instruções<textarea name="conteudo" rows="4" maxlength="5000" placeholder="Escreva a explicação ou as instruções da atividade."></textarea></label>
+      <label>Link externo (opcional)<input name="linkExterno" type="url" placeholder="https://..."></label>
+      <label>Arquivo para abrir no site (até 20 MB)<input id="publication-file" name="arquivo" type="file" accept=".pdf,image/*,video/*,audio/*,text/plain"></label>
+      <label id="activity-type-field" hidden>Atividade existente<select id="activity-type"><option value="prova">Prova</option><option value="quiz">Quiz ao vivo</option></select></label>
+      <label id="activity-proof-field" hidden>Prova<select id="activity-proof"><option value="">Selecione uma prova</option></select></label>
+      <label id="activity-quiz-field" hidden>Quiz<select id="activity-quiz"><option value="">Selecione um quiz</option></select></label>
+      <p class="form-help">Quizzes publicados criam uma sessão com PIN. O professor inicia a partida no Dashboard; os alunos entram pelo próprio perfil. Provas abrem para cada aluno responder.</p>
+      <button class="primary" type="submit">Publicar para a turma</button>
+    </form>
+    <p id="publication-feedback" class="feedback" role="status"></p><p id="page-error" class="feedback" role="alert"></p>
+  </section>
+  <section class="card"><h2>Minhas turmas e códigos de acesso</h2><p>Compartilhe o código com os alunos para que eles entrem na turma.</p><div id="class-list" class="class-list">Carregando turmas...</div></section>
+  <section class="card"><h2>Publicações</h2><label>Filtrar turma<select id="publication-filter"><option value="">Todas as turmas</option></select></label><div id="teacher-publications" class="stack" style="margin-top:14px">Carregando publicações...</div></section>
+</main><script type="module" src="../js/app-shell.js?v=20261106-wide-form"></script><script type="module" src="../js/professor.js?v=academic-catalog-1"></script></body></html>

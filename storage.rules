@@ -1,0 +1,50 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isMaster() {
+      return request.auth != null
+        && request.auth.token.email == "willyancruz@prof.educacao.sp.gov.br"
+        && request.auth.token.email_verified == true;
+    }
+
+    function accountActive() {
+      return request.auth != null
+        && (isMaster()
+          || !firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+          || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get("accessStatus", "active") == "active");
+    }
+
+    match /questoes-imagens/{professorId}/{allPaths=**} {
+      allow read: if accountActive();
+      allow write: if accountActive()
+        && request.auth.uid == professorId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /perfis-alunos/{alunoId}/avatar {
+      allow read: if accountActive();
+      allow write: if accountActive()
+        && request.auth.uid == alunoId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /aulas-atividades/{professorId}/{turmaId}/{publicationId}/{fileName} {
+      function isEnrolledInClass() {
+        return accountActive()
+          && firestore.exists(/databases/(default)/documents/matriculas/$(request.auth.uid + "_" + turmaId));
+      }
+
+      allow read: if accountActive()
+        && (request.auth.uid == professorId || isEnrolledInClass());
+      allow create, update: if accountActive()
+        && request.auth.uid == professorId
+        && request.resource.size <= 20 * 1024 * 1024
+        && (request.resource.contentType == "application/pdf"
+          || request.resource.contentType == "text/plain"
+          || request.resource.contentType.matches('(image|video|audio)/.*'));
+      allow delete: if accountActive() && request.auth.uid == professorId;
+    }
+  }
+}

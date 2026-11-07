@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#204B9C">
     <meta name="description" content="Quizzes ao vivo para aprender e se divertir em sala de aula.">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./css/style.css?v=20261106-wide-form">
     <title>Quizziolando — quizzes ao vivo</title>
   </head>
   <body>
@@ -61,8 +62,11 @@
             <p id="auth-error" class="notice notice-error" role="alert" hidden></p>
             <button id="auth-submit" class="button button-primary button-wide" type="submit">Entrar</button>
           </form>
+          <button id="google-signin" class="button button-outline button-wide google-button" type="button">Entrar com Google</button>
           <p class="switch-auth"><span id="switch-copy">Ainda não tem uma conta?</span> <button id="switch-auth" class="text-button" type="button">Criar conta</button></p>
           <button id="show-join" class="button button-dark button-wide" type="button">Entrar em uma sala com PIN</button>
+          <a class="button button-outline button-wide student-entry" href="./aluno/join.html">Entrar no novo quiz com PIN</a>
+          <a class="button button-outline button-wide student-entry" href="./aluno/minhas-provas.html">Acessar minha área de aluno</a>
         </div>
       </section>
 
@@ -71,6 +75,13 @@
           <div><span class="eyebrow">PAINEL DO PROFESSOR</span><h1>Olá, <span id="teacher-greeting">professor(a)</span>!</h1><p>Prepare um quiz ou retome uma atividade.</p></div>
           <button id="show-join-teacher" class="button button-outline" type="button">Entrar em uma sala</button>
         </div>
+        <nav class="site-nav" aria-label="Ferramentas do professor">
+          <a href="./professor/dashboard.html">Dashboard avançado</a><a href="./professor/criar-quiz.html">Criar quiz</a>
+          <a href="./professor/criar-prova.html">Criar prova</a><a href="./professor/aulas-atividades.html">Aulas e atividades</a><a href="./professor/bi.html">Desempenho</a>
+          <a href="./professor/registros.html">Registros</a>
+        </nav>
+        <p id="master-verification-notice" class="notice notice-error" hidden>Para liberar o Controle master, confirme o endereço de e-mail desta conta.</p>
+        <button id="master-verification" class="button button-outline" type="button" hidden>Enviar e-mail de verificação</button>
         <div class="dashboard-grid">
           <section class="card create-card">
             <div class="section-title"><span class="section-icon">✎</span><div><h2>Novo quiz</h2><p>Adicione perguntas e quatro alternativas.</p></div></div>
@@ -142,6 +153,7 @@
       </section>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./js/app-shell.js?v=20261106-wide-form"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

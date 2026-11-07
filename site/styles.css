@@ -4,8 +4,9 @@
   color-scheme: light;
   --ink: #20233a;
   --muted: #73778d;
-  --primary: #4f46e5;
-  --primary-dark: #4338ca;
+  --primary: #204B9C;
+  --primary-dark: #173a7a;
+  --accent: #FFC700;
   --line: #e8e9f1;
   --canvas: #f7f8fc;
   --card: #fff;
@@ -56,6 +57,11 @@ h1, h2 { font-family: Manrope, sans-serif; letter-spacing: -.7px; }
 .button-outline:hover, .button-quiet:hover { background: #f3f4fa; }
 .button-dark { color: #fff; background: #25263a; }
 .button-dark:hover { background: #171828; }
+.google-button { margin-top: 12px; }
+.student-entry { display: block; margin-top: 10px; text-align: center; text-decoration: none; }
+.site-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: -10px 0 25px; }
+.site-nav a { padding: 10px 15px; color: var(--primary); background: #fff; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 700; text-decoration: none; }
+.site-nav a:hover { background: #fff8d8; border-color: var(--accent); }
 .button-quiet { color: #575b70; background: transparent; }
 .button-wide { width: 100%; }
 .switch-auth { margin: 17px 0 0; color: var(--muted); text-align: center; font-size: 12px; }
@@ -123,8 +129,10 @@ h1, h2 { font-family: Manrope, sans-serif; letter-spacing: -.7px; }
 .toast.visible { opacity: 1; transform: translateY(0); }
 
 @media (max-width: 850px) {
-  .auth-layout { grid-template-columns: 1fr 400px; gap: 28px; }
+  .auth-layout { max-width: 720px; grid-template-columns: minmax(0, 1fr); align-content: center; gap: 28px; }
+  .hero-copy { max-width: none; }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .room-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 650px) {
   .topbar { height: 64px; padding: 0 17px; }
@@ -150,4 +158,16 @@ h1, h2 { font-family: Manrope, sans-serif; letter-spacing: -.7px; }
   .answer-options { grid-template-columns: 1fr; }
   .quiz-item { align-items: flex-start; flex-direction: column; }
   .quiz-item .button { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .topbar { padding-inline: 12px; }
+  .top-actions { gap: 2px; }
+  .topbar .button { padding-inline: 7px; }
+  .view { width: calc(100% - 24px); }
+  .auth-card,.join-card { padding: 20px 16px; }
+  .hero-copy h1 { font-size: clamp(32px, 10vw, 39px); }
+  .page-heading h1,.room-heading h1 { overflow-wrap: anywhere; }
+  .quiz-item { min-width: 0; }
+  .question-meta { gap: 8px; }
 }

@@ -1,18 +1,19 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signInAnonymously, signOut
+  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signInAnonymously, signOut, GoogleAuthProvider, signInWithPopup, sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, query, where,
+  collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, query, where,
   orderBy, onSnapshot, serverTimestamp, runTransaction, increment, writeBatch, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { auth, db, firebaseConfig } from "./firebase-config.js";
+import { readAccountAccess, showMasterLink, startAccessMonitoring, stopAccessMonitoring } from "./js/access-monitor.js";
+import { playSiteSound, setupSoundEffects } from "./js/sound-effects.js";
+import { setupTutorial } from "./js/tutorial.js";
 
 const $ = (selector) => document.querySelector(selector);
 const views = ["auth", "teacher", "join", "room"];
-let db;
-let firebaseAuth;
+const firebaseAuth = auth;
 let user = null;
 let authFlowInProgress = false;
 let authMode = "login";
@@ -503,6 +504,14 @@ async function createRoom(quizId, quiz) {
 }
 
 async function joinRoom(pin, nickname) {
+  const access = await readAccountAccess(db, user);
+  if (!access.allowed) throw new Error(`Esta conta está ${access.status === "banned" ? "banida" : "desativada"} no site.${access.reason ? ` Motivo: ${access.reason}` : ""}`);
+  startAccessMonitoring(db, user);
+  if (user.isAnonymous) {
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid, nome: nickname, email: "", role: "aluno", escola: "PEI Riolando Canno"
+    }, { merge: true });
+  }
   const pinSnapshot = await getDoc(doc(db, "roomPins", pin));
   if (!pinSnapshot.exists()) throw new Error("Sala não encontrada ou quiz já encerrado. Confira o PIN.");
   const gameRef = doc(db, "games", pinSnapshot.data().gameId);
@@ -517,6 +526,12 @@ async function joinRoom(pin, nickname) {
 
 async function initializeTeacher(account) {
   user = account;
+  const access = await readAccountAccess(db, account);
+  if (!access.allowed) {
+    throw new Error(`Esta conta está ${access.status === "banned" ? "banida" : "desativada"} no site.${access.reason ? ` Motivo: ${access.reason}` : ""}`);
+  }
+  startAccessMonitoring(db, account);
+  showMasterLink(account);
   const profile = await getDoc(doc(db, "profiles", account.uid));
   if (!profile.exists()) {
     const inep = window.prompt("Informe o código INEP da sua escola (8 números) para concluir o cadastro:");
@@ -524,13 +539,45 @@ async function initializeTeacher(account) {
     await saveTeacherProfile(account, account.displayName || "Professor(a)", inep.trim());
   }
   const finalProfile = (await getDoc(doc(db, "profiles", account.uid))).data();
+  await setDoc(doc(db, "users", account.uid), {
+    uid: account.uid,
+    nome: finalProfile?.name || account.displayName || "Professor(a)",
+    email: account.email || "",
+    role: "professor",
+    escola: "PEI Riolando Canno"
+  }, { merge: true });
+  const redirect = new URLSearchParams(location.search).get("redirect");
+  if (redirect) {
+    const destination = new URL(redirect, location.origin);
+    if (destination.origin === location.origin && /\/professor\/(dashboard|criar-quiz|criar-prova|bi|registros)\.html$/.test(destination.pathname)) {
+      location.replace(destination.href);
+      return;
+    }
+  }
   $("#teacher-greeting").textContent = (finalProfile?.name || "professor(a)").split(" ")[0];
+  const isMasterEmail = account.email?.toLowerCase() === "willyancruz@prof.educacao.sp.gov.br";
+  $("#master-verification-notice").hidden = !isMasterEmail || account.emailVerified;
+  $("#master-verification").hidden = !isMasterEmail || account.emailVerified;
   $("#signout-button").hidden = false;
   showView("teacher");
   loadQuizzes();
   const savedRoom = JSON.parse(sessionStorage.getItem("quizziolando:room") || "null");
   if (savedRoom?.id && savedRoom.role === "teacher") await openRoom(savedRoom.id, "teacher");
 }
+
+$("#master-verification").addEventListener("click", async () => {
+  if (!user || user.email?.toLowerCase() !== "willyancruz@prof.educacao.sp.gov.br") return;
+  const button = $("#master-verification");
+  button.disabled = true;
+  try {
+    await sendEmailVerification(user);
+    showToast("Enviamos um link de verificação. Confirme o e-mail e entre novamente para abrir o Controle master.");
+  } catch (error) {
+    showToast(`Não foi possível enviar o e-mail de verificação: ${readableError(error)}`);
+  } finally {
+    button.disabled = false;
+  }
+});
 
 function configurationReady() {
   return firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("COLOQUE_") &&
@@ -560,6 +607,19 @@ $("#auth-form").addEventListener("submit", async (event) => {
   } finally {
     authFlowInProgress = false;
     button.disabled = false;
+  }
+});
+
+$("#google-signin")?.addEventListener("click", async () => {
+  authFlowInProgress = true;
+  try {
+    const provider = new GoogleAuthProvider();
+    const credential = await signInWithPopup(firebaseAuth, provider);
+    await initializeTeacher(credential.user);
+  } catch (error) {
+    showError($("#auth-error"), readableError(error));
+  } finally {
+    authFlowInProgress = false;
   }
 });
 
@@ -647,7 +707,10 @@ $("#leave-room").addEventListener("click", async () => {
   }
   cleanupRoom();
   sessionStorage.removeItem("quizziolando:room");
-  if (user?.isAnonymous) await signOut(firebaseAuth);
+  if (user?.isAnonymous) {
+    stopAccessMonitoring(user);
+    await signOut(firebaseAuth);
+  }
   else backFromJoin();
   sessionStorage.removeItem("quizziolando:room");
 });
@@ -662,6 +725,7 @@ $("#signout-button").addEventListener("click", async () => {
     }
   }
   cleanupRoom();
+  stopAccessMonitoring(user);
   sessionStorage.removeItem("quizziolando:room");
   if (quizUnsubscribe) quizUnsubscribe();
   await signOut(firebaseAuth);
@@ -686,6 +750,8 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 setConnectionStatus();
+setupSoundEffects();
+setupTutorial();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch((error) => console.error("Falha ao registrar o service worker:", error));
 }
@@ -694,9 +760,6 @@ if (!configurationReady()) {
   $("#connection-status").classList.add("offline");
   showError($("#auth-error"), "Antes de usar o app, preencha os dados do Firebase em site/firebase-config.js e publique as regras do Firestore.");
 } else {
-  const app = initializeApp(firebaseConfig);
-  firebaseAuth = getAuth(app);
-  db = getFirestore(app);
   onAuthStateChanged(firebaseAuth, async (account) => {
     if (authFlowInProgress) return;
     user = account;
@@ -707,6 +770,12 @@ if (!configurationReady()) {
     }
     try {
       if (account.isAnonymous) {
+        const access = await readAccountAccess(db, account);
+        if (!access.allowed) {
+          showError($("#auth-error"), `Esta conta está ${access.status === "banned" ? "banida" : "desativada"} no site.${access.reason ? ` Motivo: ${access.reason}` : ""}`);
+          return;
+        }
+        startAccessMonitoring(db, account);
         const savedRoom = JSON.parse(sessionStorage.getItem("quizziolando:room") || "null");
         if (savedRoom?.id && savedRoom.role === "player") await openRoom(savedRoom.id, "player", savedRoom.nickname);
         else enterJoin(new URLSearchParams(location.search).get("pin") || "");
